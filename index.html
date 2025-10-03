@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Sorteos</title>
+    
+    <!-- INICIO: CONFIGURACIÓN PWA PARA ICONOS Y APARIENCIA EN MÓVILES -->
+    
+    <!-- 1. Enlace al Manifest (Debe estar en la raíz) -->
+    <link rel="manifest" href="./manifest.json">
+    
+    <!-- 2. Meta para iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- 3. Icono de Touch para iOS (Debe estar en la raíz) -->
+    <link rel="apple-touch-icon" href="./icon-192x192.png">
+    
+    <!-- 4. Color de la barra del navegador (coincide con theme_color del manifest) -->
+    <meta name="theme-color" content="#1e40af">
+    
+    <!-- FIN: CONFIGURACIÓN PWA -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 600px;
+        }
+        input, select {
+            border: 1px solid #d1d5db;
+        }
+        .text-red-600 {
+            color: #dc2626;
+        }
+        .text-green-600 {
+            color: #16a34a;
+        }
+        /* Estilo para la lista de One Two */
+        .one-two-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr; /* Número | Nombre | Eliminar */
+            gap: 0.5rem;
+            align-items: center;
+        }
+        /* Estilo para el botón de voz mientras está activo */
+        .listening {
+            animation: pulse 1s infinite;
+            background-color: #ef4444; /* Rojo para indicar que está grabando */
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 min-h-screen flex items-center justify-center">
+
+    <div class="container bg-white p-6 rounded-lg shadow-xl w-full">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Control de Sorteos</h1>
+
+        <!-- Mensaje de alerta personalizado -->
+        <div id="custom-alert" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Atención</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p id="alert-message" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div class="items-center px-4 py-3">
+                        <button id="alert-ok-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección Principal -->
+        <div id="main-screen">
+            <div id="sorteo-input" class="space-y-4 mb-6 p-4 border rounded-lg bg-gray-50">
+                <h2 class="text-xl font-semibold mb-2">Nuevo Sorteo Normal</h2>
+                <div>
+                    <label for="fecha" class="block text-gray-700 font-medium">Fecha del Sorteo</label>
+                    <input type="date" id="fecha" class="mt-1 p-2 w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+            </div>
+
+            <div class="flex flex-col space-y-2">
+                <div class="flex space-x-2">
+                    <button id="iniciarSorteoBtn" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 shadow">Iniciar Sorteo</button>
+                    <button id="abrirExistenteBtn" class="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 shadow">Abrir Sorteo Existente</button>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="oneTwoBtn" class="flex-1 bg-pink-600 text-white py-2 px-4 rounded-md hover:bg-pink-700 transition duration-300 shadow font-bold">One Two</button>
+                    <button id="cobroBtn" class="flex-1 bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600 transition duration-300 shadow">Cuenta por Cobrar</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ##################################################################### -->
+        <!-- SECCIÓN ONE TWO -->
+        <!-- ##################################################################### -->
+        <div id="one-two-main-container" class="hidden mt-6">
+            <h2 class="text-2xl font-bold mb-4 text-center text-pink-600">Gestión de One Two</h2>
+            
+            <!-- Formulario de Creación/Selección -->
+            <div id="one-two-form-section" class="space-y-4 p-4 border rounded-lg bg-pink-50">
+                <h3 class="text-xl font-semibold mb-2 text-pink-700">Crear/Abrir One Two</h3>
+                <div>
+                    <label for="oneTwoFecha" class="block text-gray-700 font-medium">Fecha del Sorteo</label>
+                    <input type="date" id="oneTwoFecha" class="mt-1 p-2 w-full rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500">
+                </div>
+
+                <div id="one-two-input-container" class="space-y-4">
+                    <label for="oneTwoNumero" class="block text-gray-700 font-medium">Número Base (00-99)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="oneTwoNumero" class="mt-1 p-2 w-full rounded-md shadow-sm" placeholder="Ej. 91 (Generará 091, 191, ..., 991)" min="0" max="99">
+                        <button id="generarOneTwoBtn" class="bg-pink-500 text-white py-2 px-4 rounded-md hover:bg-pink-600 transition duration-300 shadow">Generar Lista</button>
+                    </div>
+                    <button id="guardarOneTwoBtn" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 shadow">Guardar One Two</button>
+                </div>
+
+                <button id="abrirOneTwoSorteoBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 shadow">Abrir Sorteo One Two</button>
+
+            </div>
+
+            <!-- Lista de Números Generados/Abiertos -->
+            <div id="one-two-list-section" class="hidden mt-6 p-4 border rounded-lg bg-white shadow-md">
+                <h3 class="text-xl font-semibold mb-3 text-pink-700">Números One Two para: <span id="one-two-fecha-actual" class="font-bold"></span></h3>
+                <div id="one-two-lista-numeros" class="space-y-2">
+                    <!-- Lista dinámica se inserta aquí -->
+                </div>
+                <button id="oneTwoGuardarNombresBtn" class="w-full mt-4 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition duration-300 shadow">Guardar Nombres</button>
+            </div>
+            
+            <button id="backToMainFromOneTwoBtn" class="w-full mt-4 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-300 shadow">Regresar a Pantalla Principal</button>
+        </div>
+
+
+        <!-- Historial de Sorteos Normales -->
+        <div id="historial-sorteos-container" class="hidden mt-6">
+            <h2 class="text-2xl font-bold mb-4 text-center">Abrir Sorteo Normal Existente</h2>
+            <div id="historial-lista" class="space-y-4">
+                <!-- La lista de sorteos se inserta aquí por JS -->
+            </div>
+            <button id="backToMainFromHistorialBtn" class="w-full mt-4 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-300 shadow">Volver</button>
+        </div>
+
+        <!-- Sección de Clientes -->
+        <div id="cliente-select-container" class="hidden space-y-4 p-4 border rounded-lg bg-gray-50">
+            <h2 class="text-xl font-semibold mb-2">Seleccionar Cliente</h2>
+            <div class="flex items-center space-x-2">
+                <input type="text" id="cliente-input" class="mt-1 p-2 w-full rounded-md shadow-sm" placeholder="Nombre del Cliente">
+                <!-- Botón de Voz para Cliente -->
+                <button id="cliente-voice-btn" data-input-id="cliente-input" class="voice-btn p-2 bg-gray-300 rounded-md hover:bg-gray-400 transition duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a4 4 0 01-4-4V7a4 4 0 018 0v1a4 4 0 01-4 4z" />
+                    </svg>
+                </button>
+            </div>
+            <button id="seleccionarClienteBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 shadow">Continuar con este Cliente</button>
+        </div>
+
+        <!-- Sección de Apuestas Normales -->
+        <div id="apuesta-form-container" class="hidden space-y-4 p-4 border rounded-lg bg-gray-50">
+            <h2 class="text-xl font-semibold mb-2">Apuesta para: <span id="cliente-actual" class="font-bold text-blue-600"></span></h2>
+            <div class="space-y-2">
+                <div>
+                    <label for="numero" class="block text-gray-700 font-medium">Número</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="numero" class="mt-1 p-2 w-full rounded-md shadow-sm" placeholder="Ej. 1234">
+                        <!-- Botón de Voz para Número -->
+                        <button id="numero-voice-btn" data-input-id="numero" class="voice-btn p-2 bg-gray-300 rounded-md hover:bg-gray-400 transition duration-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a4 4 0 01-4-4V7a4 4 0 018 0v1a4 4 0 01-4 4z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label for="dinero" class="block text-gray-700 font-medium">Dinero (B/.)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="dinero" class="mt-1 p-2 w-full rounded-md shadow-sm" placeholder="Ej. 10.50" step="0.01">
+                        <!-- Botón de Voz para Dinero -->
+                        <button id="dinero-voice-btn" data-input-id="dinero" class="voice-btn p-2 bg-gray-300 rounded-md hover:bg-gray-400 transition duration-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a4 4 0 01-4-4V7a4 4 0 018 0v1a4 4 0 01-4 4z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <span class="block text-gray-700 font-medium">Tiempos</span>
+                    <span id="tiempos" class="mt-1 block p-2 rounded-md bg-gray-200 text-gray-600 font-mono">0.00</span>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button id="agregarBtn" class="w-1/2 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 shadow">Agregar Número</button>
+                <button id="cambiarClienteBtn" class="w-1/2 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-300 shadow">Cambiar Cliente</button>
+            </div>
+            <div class="flex flex-col space-y-2 mt-2">
+                <button id="shareClienteBtn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition duration-300 shadow">Compartir Apuestas del Cliente</button>
+                <button id="cerrarSorteoBtn" class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 shadow">Cerrar Sorteo</button>
+            </div>
+        </div>
+
+        <!-- Lista de Apuestas Normales -->
+        <div id="apuestas-lista" class="mt-6 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 text-center">Apuestas del Sorteo</h2>
+            <div id="apuestas-container" class="space-y-4">
+                <!-- Las apuestas se insertan aquí por JS -->
+            </div>
+            <!-- Botón para regresar a la pantalla principal después de ver la lista de apuestas -->
+            <button id="backToMainFromApuestasBtn" class="w-full mt-4 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-300 shadow">Regresar</button>
+        </div>
+
+        <!-- Reporte de Cierre -->
+        <div id="reporte-cierre" class="mt-6 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-center">Reporte de Cierre</h2>
+            <div class="p-4 border rounded-lg bg-gray-50">
+                <div class="grid grid-cols-3 font-bold text-gray-700 mb-2 border-b-2 pb-1">
+                    <span>Número</span>
+                    <span>Tiempos</span>
+                    <span>Dinero</span>
+                </div>
+                <div id="reporte-contenido" class="space-y-2">
+                    <!-- El reporte de cierre se inserta aquí por JS -->
+                </div>
+                <div id="total-dinero-sorteo" class="mt-4 text-center p-3 bg-gray-300 rounded-lg"></div>
+            </div>
+            <button id="shareReporteBtn" class="w-full mt-4 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition duration-300 shadow">Compartir Reporte</button>
+            <button id="volverBtn" class="w-full mt-2 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-300 shadow">Regresar</button>
+        </div>
+
+        <!-- Sección de Cuenta por Cobrar Total -->
+        <div id="cobro-container" class="hidden mt-6">
+            <h2 class="text-2xl font-bold mb-4 text-center">Cuenta por Cobrar Total</h2>
+            <p class="text-sm text-center text-gray-500 mb-4">Muestra el saldo pendiente acumulado por cliente (Sorteo normal + One Two).</p>
+            <div id="cobro-lista" class="space-y-4">
+                <!-- La lista de cobros se inserta aquí por JS -->
+            </div>
+            <button id="backToMainFromCobroBtn" class="w-full mt-4 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-300 shadow">Regresar</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Elementos de UI ---
+            const iniciarSorteoBtn = document.getElementById('iniciarSorteoBtn');
+            const abrirExistenteBtn = document.getElementById('abrirExistenteBtn');
+            const cobroBtn = document.getElementById('cobroBtn');
+            const backToMainFromCobroBtn = document.getElementById('backToMainFromCobroBtn');
+            const backToMainFromHistorialBtn = document.getElementById('backToMainFromHistorialBtn');
+            const volverBtn = document.getElementById('volverBtn');
+            const oneTwoBtn = document.getElementById('oneTwoBtn');
+            const backToMainFromOneTwoBtn = document.getElementById('backToMainFromOneTwoBtn');
+            const backToMainFromApuestasBtn = document.getElementById('backToMainFromApuestasBtn');
+
+            const mainScreen = document.getElementById('main-screen');
+            const historialSorteosContainer = document.getElementById('historial-sorteos-container');
+            const historialLista = document.getElementById('historial-lista');
+            const cobroContainer = document.getElementById('cobro-container');
+            const clienteSelectContainer = document.getElementById('cliente-select-container');
+            const apuestaFormContainer = document.getElementById('apuesta-form-container');
+            const clienteInput = document.getElementById('cliente-input');
+            const seleccionarClienteBtn = document.getElementById('seleccionarClienteBtn');
+            const clienteActualSpan = document.getElementById('cliente-actual');
+            const apuestasLista = document.getElementById('apuestas-lista');
+            const reporteCierre = document.getElementById('reporte-cierre');
+            const fechaInput = document.getElementById('fecha');
+            const numeroInput = document.getElementById('numero');
+            const dineroInput = document.getElementById('dinero');
+            const tiemposSpan = document.getElementById('tiempos');
+            const agregarBtn = document.getElementById('agregarBtn');
+            const cambiarClienteBtn = document.getElementById('cambiarClienteBtn');
+            const cerrarSorteoBtn = document.getElementById('cerrarSorteoBtn');
+            const apuestasContainer = document.getElementById('apuestas-container');
+            const reporteContenido = document.getElementById('reporte-contenido');
+            const shareReporteBtn = document.getElementById('shareReporteBtn');
+            const cobroLista = document.getElementById('cobro-lista');
+            const shareClienteBtn = document.getElementById('shareClienteBtn');
+
+            const customAlert = document.getElementById('custom-alert');
+            const alertMessage = document.getElementById('alert-message');
+            const alertOkBtn = document.getElementById('alert-ok-btn');
+
+            // --- Elementos One Two ---
+            const oneTwoMainContainer = document.getElementById('one-two-main-container');
+            const oneTwoFechaInput = document.getElementById('oneTwoFecha');
+            const oneTwoNumeroInput = document.getElementById('oneTwoNumero');
+            const generarOneTwoBtn = document.getElementById('generarOneTwoBtn');
+            const guardarOneTwoBtn = document.getElementById('guardarOneTwoBtn');
+            const abrirOneTwoSorteoBtn = document.getElementById('abrirOneTwoSorteoBtn');
+            const oneTwoListSection = document.getElementById('one-two-list-section');
+            const oneTwoListaNumeros = document.getElementById('one-two-lista-numeros');
+            const oneTwoFechaActualSpan = document.getElementById('one-two-fecha-actual');
+            const oneTwoGuardarNombresBtn = document.getElementById('oneTwoGuardarNombresBtn');
+            const oneTwoInputContainer = document.getElementById('one-two-input-container');
+
+
+            // --- Variables de Estado y Storage ---
+            const STORAGE_KEY_SORTEOS = 'control-sorteos-data';
+            const STORAGE_KEY_ONE_TWO = 'control-one-two-data';
+            const STORAGE_KEY_CUENTAS = 'control-cuentas-data';
+
+            let sorteoActual = null;
+            let clienteActual = null;
+            let oneTwoActual = null;
+
+            let sorteos = JSON.parse(localStorage.getItem(STORAGE_KEY_SORTEOS)) || [];
+            let oneTwoSorteos = JSON.parse(localStorage.getItem(STORAGE_KEY_ONE_TWO)) || [];
+            let cuentasPorPagar = JSON.parse(localStorage.getItem(STORAGE_KEY_CUENTAS)) || {};
+
+            function showMessage(message) {
+                alertMessage.textContent = message;
+                customAlert.classList.remove('hidden');
+            }
+
+            alertOkBtn.addEventListener('click', () => {
+                customAlert.classList.add('hidden');
+            });
+
+            function guardarDatos() {
+                localStorage.setItem(STORAGE_KEY_SORTEOS, JSON.stringify(sorteos));
+                localStorage.setItem(STORAGE_KEY_ONE_TWO, JSON.stringify(oneTwoSorteos));
+                localStorage.setItem(STORAGE_KEY_CUENTAS, JSON.stringify(cuentasPorPagar));
+                console.log("Datos guardados en localStorage.");
+            }
+
+            function limpiarFormularioApuesta() {
+                numeroInput.value = '';
+                dineroInput.value = '';
+                tiemposSpan.textContent = '0.00';
+            }
+
+            function ocultarTodasLasSecciones() {
+                const secciones = [mainScreen, historialSorteosContainer, cobroContainer, clienteSelectContainer, apuestaFormContainer, apuestasLista, reporteCierre, oneTwoMainContainer];
+                secciones.forEach(sec => sec.classList.add('hidden'));
+            }
+
+            // --- Lógica de Reconocimiento de Voz ---
+            // Alias para compatibilidad de navegadores
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            function iniciarReconocimientoVoz(inputId, tipo) {
+                if (!SpeechRecognition) {
+                    showMessage('El reconocimiento de voz no es soportado por este navegador o entorno.');
+                    return;
+                }
+
+                const inputElement = document.getElementById(inputId);
+                const voiceButton = document.querySelector(`.voice-btn[data-input-id="${inputId}"]`);
+                
+                if (!inputElement || !voiceButton) {
+                    console.error('Elemento de entrada o botón de voz no encontrado.');
+                    return;
+                }
+
+                // Desactivar otros botones de voz
+                document.querySelectorAll('.voice-btn').forEach(btn => {
+                    if (btn !== voiceButton) {
+                        btn.disabled = true;
+                    }
+                });
+
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'es-ES'; // Configurar idioma a español
+                recognition.interimResults = false; // Solo resultados finales
+                recognition.maxAlternatives = 1; // Solo la mejor alternativa
+
+                voiceButton.classList.add('listening');
+
+                recognition.onresult = (event) => {
+                    let transcript = event.results[0][0].transcript.trim();
+                    console.log('Voz reconocida:', transcript);
+                    
+                    if (tipo === 'dinero' || tipo === 'numero') {
+                        // Limpiar y parsear el texto para números
+                        transcript = transcript.replace(/[^\d.,]/g, ''); // Eliminar caracteres no numéricos
+                        transcript = transcript.replace(',', '.'); // Reemplazar coma por punto para float
+                        
+                        if (tipo === 'dinero') {
+                            const parsedValue = parseFloat(transcript);
+                            if (!isNaN(parsedValue)) {
+                                inputElement.value = parsedValue.toFixed(2);
+                                // Forzar el evento input para actualizar los tiempos
+                                inputElement.dispatchEvent(new Event('input'));
+                            } else {
+                                showMessage(`No se pudo extraer un valor de dinero válido de: "${transcript}"`);
+                            }
+                        } else { // tipo === 'numero'
+                            // Asegurar que solo sea el número entero
+                            inputElement.value = parseInt(transcript).toString().replace('NaN', '');
+                        }
+                    } else {
+                        // Para nombres de cliente, usar el texto tal cual
+                        inputElement.value = transcript;
+                    }
+                    
+                    // Si se reconoce la voz, el botón se detiene
+                    voiceButton.classList.remove('listening');
+                    document.querySelectorAll('.voice-btn').forEach(btn => btn.disabled = false);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Error de reconocimiento de voz:', event.error);
+                    showMessage(`Error de voz: ${event.error}. Asegúrate de dar permiso al micrófono.`);
+                    voiceButton.classList.remove('listening');
+                    document.querySelectorAll('.voice-btn').forEach(btn => btn.disabled = false);
+                };
+                
+                recognition.onend = () => {
+                    voiceButton.classList.remove('listening');
+                    document.querySelectorAll('.voice-btn').forEach(btn => btn.disabled = false);
+                };
+
+                recognition.start();
+            }
+
+            // Asignar listeners a los botones de voz
+            document.getElementById('cliente-voice-btn').addEventListener('click', () => {
+                iniciarReconocimientoVoz('cliente-input', 'cliente');
+            });
+            document.getElementById('numero-voice-btn').addEventListener('click', () => {
+                iniciarReconocimientoVoz('numero', 'numero');
+            });
+            document.getElementById('dinero-voice-btn').addEventListener('click', () => {
+                iniciarReconocimientoVoz('dinero', 'dinero');
+            });
+
+
+            // --- Lógica de Cuenta por Cobrar (Unificada) ---
+            function agregarACuentaPorPagar(cliente, fecha, monto, tipo) {
+                if (!cuentasPorPagar[cliente]) {
+                    cuentasPorPagar[cliente] = { total: 0, sorteos: [] };
+                }
+                
+                // Buscar si ya existe una entrada para esta fecha y tipo
+                const existingEntry = cuentasPorPagar[cliente].sorteos.find(s => s.fecha === fecha && s.tipo === tipo);
+
+                if (existingEntry) {
+                    // Si ya existe, actualiza el monto. Esto es útil si se guarda dos veces un One Two.
+                    const diff = monto - existingEntry.monto;
+                    cuentasPorPagar[cliente].total += diff;
+                    existingEntry.monto = monto;
+                } else {
+                    // Si es nuevo, añade la entrada
+                    cuentasPorPagar[cliente].total += monto;
+                    cuentasPorPagar[cliente].sorteos.push({ fecha, monto, tipo, pagado: false });
+                }
+                
+                guardarDatos();
+            }
+            
+            function calcularTotalDeudas() {
+                const deudas = {};
+                for (const cliente in cuentasPorPagar) {
+                    if (cuentasPorPagar[cliente].total > 0) {
+                        // Solo mostramos clientes con saldo pendiente
+                        deudas[cliente] = cuentasPorPagar[cliente];
+                    }
+                }
+                return deudas;
+            }
+
+            function renderizarCobros() {
+                cobroLista.innerHTML = '';
+                const deudas = calcularTotalDeudas();
+                
+                if (Object.keys(deudas).length === 0) {
+                    cobroLista.innerHTML = '<p class="text-center text-gray-500">No hay cuentas por cobrar pendientes.</p>';
+                    return;
+                }
+
+                for (const cliente in deudas) {
+                    const clienteData = deudas[cliente];
+                    const totalDeuda = clienteData.total;
+                    
+                    const item = document.createElement('div');
+                    item.className = `p-4 rounded-lg shadow-md flex flex-col space-y-2 bg-white`;
+                    item.innerHTML = `
+                        <div class="flex items-center justify-between border-b pb-2">
+                            <p class="font-bold text-lg text-gray-800">${cliente}</p>
+                            <span class="font-bold text-xl text-red-600">B/.${totalDeuda.toFixed(2)}</span>
+                        </div>
+                        
+                        <!-- Detalle de Sorteos -->
+                        <div class="space-y-1 text-sm">
+                            ${clienteData.sorteos.map((sorteo, index) => `
+                                <div class="flex justify-between items-center p-1 rounded-md ${sorteo.pagado ? 'bg-green-100' : 'bg-red-100'}">
+                                    <p class="text-gray-700">
+                                        ${sorteo.tipo} del <span class="font-semibold">${sorteo.fecha}</span>
+                                    </p>
+                                    <div class="flex items-center space-x-2">
+                                        <button data-cliente="${cliente}" data-index="${index}" data-pagado="${sorteo.pagado}" 
+                                            class="toggle-pago px-2 py-0.5 text-xs text-white rounded-md 
+                                            ${sorteo.pagado ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} transition duration-300">
+                                            ${sorteo.pagado ? 'Deshacer Pago' : 'Marcar Pagado'}
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    cobroLista.appendChild(item);
+                }
+
+                cobroLista.querySelectorAll('.toggle-pago').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const cliente = e.target.dataset.cliente;
+                        const index = parseInt(e.target.dataset.index);
+                        const isPagado = e.target.dataset.pagado === 'true';
+
+                        if (!cuentasPorPagar[cliente]) return;
+
+                        const sorteo = cuentasPorPagar[cliente].sorteos[index];
+                        if (sorteo) {
+                            sorteo.pagado = !isPagado;
+                            
+                            // Ajustar el total de la cuenta del cliente
+                            const monto = sorteo.monto;
+                            if (sorteo.pagado) {
+                                cuentasPorPagar[cliente].total -= monto;
+                            } else {
+                                cuentasPorPagar[cliente].total += monto;
+                            }
+
+                            // Limpiar entradas de cliente con total 0 y sin sorteos pendientes
+                            if (cuentasPorPagar[cliente].total === 0 && cuentasPorPagar[cliente].sorteos.every(s => s.pagado)) {
+                                delete cuentasPorPagar[cliente];
+                            }
+                            
+                            guardarDatos();
+                            renderizarCobros();
+                        }
+                    });
+                });
+            }
+
+            // --- Lógica de Sorteo Normal ---
+            
+            function renderizarApuestas() {
+                if (!sorteoActual) return;
+                apuestasContainer.innerHTML = '';
+                
+                const apuestasPorCliente = sorteoActual.apuestas.reduce((acc, apuesta) => {
+                    if (!acc[apuesta.cliente]) {
+                        acc[apuesta.cliente] = [];
+                    }
+                    acc[apuesta.cliente].push(apuesta);
+                    return acc;
+                }, {});
+
+                let isFirstClient = true;
+
+                for (const cliente in apuestasPorCliente) {
+                    const clienteDiv = document.createElement('div');
+                    
+                    if (!isFirstClient) {
+                        clienteDiv.classList.add('border-t-2', 'border-green-600', 'pt-4');
+                    }
+                    isFirstClient = false;
+                    
+                    clienteDiv.className += ' p-3 bg-white rounded-lg shadow-sm';
+                    
+                    // Comprobar si este cliente compró One Two para la fecha del sorteo normal
+                    const oneTwoData = oneTwoSorteos.find(ot => ot.fecha === sorteoActual.fecha);
+                    const hasOneTwo = (oneTwoData?.numeros || []).some(num => num.cliente === cliente);
+
+                    const oneTwoTag = hasOneTwo ? '<span class="ml-2 px-2 py-0.5 text-xs font-bold text-white bg-pink-600 rounded-full">ONE TWO</span>' : '';
+
+                    clienteDiv.innerHTML = `<h3 class="font-bold text-gray-800 text-lg mb-2 flex items-center">${cliente} ${oneTwoTag}</h3>`;
+                    
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'grid grid-cols-2 font-bold text-gray-700 mb-1 pb-1';
+                    headerDiv.innerHTML = `
+                        <span>Número</span>
+                        <span>Dinero</span>
+                    `;
+                    clienteDiv.appendChild(headerDiv);
+
+                    apuestasPorCliente[cliente].forEach(apuesta => {
+                        const apuestaDiv = document.createElement('div');
+                        apuestaDiv.className = 'grid grid-cols-2 text-sm text-gray-600 mb-1';
+                        apuestaDiv.innerHTML = `
+                            <span>${apuesta.numero}</span>
+                            <span>B/.${apuesta.dinero.toFixed(2)}</span>
+                        `;
+                        clienteDiv.appendChild(apuestaDiv);
+                    });
+                    apuestasContainer.appendChild(clienteDiv);
+                }
+            }
+
+            cerrarSorteoBtn.addEventListener('click', () => {
+                if (!sorteoActual) {
+                    showMessage('No hay un sorteo activo para cerrar.');
+                    return;
+                }
+
+                if (sorteoActual.apuestas.length === 0) {
+                    showMessage('No hay apuestas para cerrar. Agrega al menos una apuesta.');
+                    return;
+                }
+
+                if (sorteoActual.cerrado) {
+                    showMessage('Este sorteo ya está cerrado.');
+                    return;
+                }
+                
+                // 1. Marcar como cerrado
+                sorteoActual.cerrado = true;
+                
+                // 2. Acumular al total de cuenta por cobrar (solo si no se había hecho antes)
+                let totalDineroSorteo = 0;
+                const totalPorCliente = {};
+
+                sorteoActual.apuestas.forEach(apuesta => {
+                    totalDineroSorteo += apuesta.dinero;
+                    if (!totalPorCliente[apuesta.cliente]) totalPorCliente[apuesta.cliente] = 0;
+                    totalPorCliente[apuesta.cliente] += apuesta.dinero;
+                });
+                
+                // 3. Registrar las apuestas normales en la cuenta por cobrar
+                for (const cliente in totalPorCliente) {
+                    agregarACuentaPorPagar(cliente, sorteoActual.fecha, totalPorCliente[cliente], 'Sorteo Normal');
+                }
+
+                // 4. Generar reporte visual
+                const resumenNumeros = {};
+                sorteoActual.apuestas.forEach(apuesta => {
+                    const { numero, tiempos, dinero } = apuesta;
+                    if (!resumenNumeros[numero]) {
+                        resumenNumeros[numero] = { tiempos: 0, dinero: 0 };
+                    }
+                    resumenNumeros[numero].tiempos += tiempos;
+                    resumenNumeros[numero].dinero += dinero;
+                });
+                
+                const numerosOrdenados = Object.keys(resumenNumeros).sort((a, b) => parseInt(a) - parseInt(b));
+
+                reporteContenido.innerHTML = '';
+                
+                numerosOrdenados.forEach(numero => {
+                    const item = document.createElement('div');
+                    item.className = 'grid grid-cols-3 p-2 bg-gray-200 rounded-md';
+                    item.innerHTML = `
+                        <span>${numero}</span>
+                        <span class="font-bold text-red-600">${resumenNumeros[numero].tiempos.toFixed(2)}</span>
+                        <span>B/.${resumenNumeros[numero].dinero.toFixed(2)}</span>
+                    `;
+                    reporteContenido.appendChild(item);
+                });
+                
+                document.getElementById('total-dinero-sorteo').innerHTML = `<p class="font-bold text-lg">Total de dinero del sorteo: B/.${totalDineroSorteo.toFixed(2)}</p>`;
+
+                guardarDatos();
+                ocultarTodasLasSecciones();
+                reporteCierre.classList.remove('hidden');
+
+                sorteoActual = null;
+                clienteActual = null;
+            });
+
+
+            shareClienteBtn.addEventListener('click', () => {
+                if (!sorteoActual || !clienteActual) {
+                    showMessage('Por favor, selecciona un cliente para compartir sus apuestas.');
+                    return;
+                }
+
+                const apuestasCliente = sorteoActual.apuestas.filter(apuesta => apuesta.cliente === clienteActual);
+                if (apuestasCliente.length === 0) {
+                    // Si no tiene apuestas normales, revisamos si tiene One Two
+                    const oneTwoDataCheck = oneTwoSorteos.find(ot => ot.fecha === sorteoActual.fecha);
+                    const oneTwoCompradosCheck = (oneTwoDataCheck?.numeros || []).filter(n => n.cliente === clienteActual);
+                    if (oneTwoCompradosCheck.length === 0) {
+                         showMessage(`El cliente ${clienteActual} no ha realizado ninguna apuesta en este sorteo.`);
+                         return;
+                    }
+                }
+
+                // Buscar si compró One Two para esta fecha
+                const oneTwoData = oneTwoSorteos.find(ot => ot.fecha === sorteoActual.fecha);
+                const oneTwoComprados = (oneTwoData?.numeros || []).filter(n => n.cliente === clienteActual);
+                const oneTwoTotal = oneTwoComprados.length * 10; // Asumimos B/.10 por cada One Two
+
+                let shareText = `¡Hola! Aquí están tus apuestas para el sorteo del ${sorteoActual.fecha}:\n\n`;
+                let totalDineroCliente = 0;
+                
+                // 1. Apuestas Normales
+                if (apuestasCliente.length > 0) {
+                    shareText += `**Sorteo Normal:**\n`;
+                    apuestasCliente.forEach(apuesta => {
+                        shareText += `-> ${apuesta.numero}: B/.${apuesta.dinero.toFixed(2)}\n`; // Formato: Número y al lado cantidad de dinero
+                        totalDineroCliente += apuesta.dinero;
+                    });
+                }
+
+
+                // 2. Apuestas One Two
+                if (oneTwoComprados.length > 0) {
+                    if (apuestasCliente.length > 0) {
+                        shareText += `\n`;
+                    }
+                    shareText += `**One Two Comprado (${oneTwoComprados.length} boleto(s)):**\n`;
+                    oneTwoComprados.forEach(item => {
+                        shareText += `-> Base ${oneTwoData.numero_base} (${item.numero}): B/.${item.dinero.toFixed(2)}\n`;
+                    });
+                    totalDineroCliente += oneTwoTotal;
+                }
+
+                shareText += `\nTotal de tus apuestas: B/.${totalDineroCliente.toFixed(2)}`;
+
+                if (navigator.share) {
+                    navigator.share({
+                        title: `Apuestas de ${clienteActual}`,
+                        text: shareText
+                    }).catch(error => console.log('Error al compartir', error));
+                } else {
+                    showMessage('La función de compartir no está disponible. Copia el siguiente texto:\n\n' + shareText);
+                }
+            });
+
+
+            // --- Lógica One Two ---
+
+            oneTwoBtn.addEventListener('click', () => {
+                ocultarTodasLasSecciones();
+                oneTwoMainContainer.classList.remove('hidden');
+                oneTwoListSection.classList.add('hidden');
+                abrirOneTwoSorteoBtn.classList.remove('hidden'); // Asegurarse de que esté visible al volver al menú
+            });
+
+            backToMainFromOneTwoBtn.addEventListener('click', () => {
+                ocultarTodasLasSecciones();
+                mainScreen.classList.remove('hidden');
+                oneTwoActual = null;
+            });
+
+            generarOneTwoBtn.addEventListener('click', () => {
+                const numeroBase = oneTwoNumeroInput.value.trim();
+                const fecha = oneTwoFechaInput.value;
+
+                if (!fecha) {
+                    showMessage('Debes seleccionar la fecha del sorteo.');
+                    return;
+                }
+                if (numeroBase.length === 0 || isNaN(parseInt(numeroBase))) {
+                    showMessage('Debes ingresar un número base (00-99).');
+                    return;
+                }
+
+                const base = parseInt(numeroBase);
+                if (base < 0 || base > 99) {
+                    showMessage('El número base debe estar entre 0 y 99.');
+                    return;
+                }
+
+                const baseStr = String(base).padStart(2, '0');
+                
+                oneTwoActual = {
+                    fecha: fecha,
+                    numero_base: baseStr,
+                    numeros: []
+                };
+
+                for (let i = 0; i <= 9; i++) {
+                    const primerDigito = i;
+                    const numeroCompleto = primerDigito + baseStr; // e.g., 9 + 91 = 991
+
+                    oneTwoActual.numeros.push({
+                        numero: numeroCompleto,
+                        cliente: '', // Vacío por defecto
+                        dinero: 10 // Asumimos 10 B/. por One Two
+                    });
+                }
+
+                // Mostrar la lista generada
+                oneTwoFechaActualSpan.textContent = `${fecha} (Base ${baseStr})`;
+                renderizarOneTwoLista(oneTwoActual.numeros);
+                oneTwoListSection.classList.remove('hidden');
+                oneTwoInputContainer.classList.add('hidden');
+                guardarOneTwoBtn.classList.remove('hidden');
+                abrirOneTwoSorteoBtn.classList.add('hidden'); // Esconder el botón de abrir mientras se edita
+            });
+
+            guardarOneTwoBtn.addEventListener('click', () => {
+                if (!oneTwoActual) {
+                    showMessage('Primero debes generar o abrir la lista de One Two.');
+                    return;
+                }
+
+                // 1. Actualizar los datos con la lista de clientes actual (si se abrió desde Abrir Sorteo One Two)
+                // Esto ya está cubierto por el listener de input, pero lo dejamos como respaldo.
+                const inputs = oneTwoListaNumeros.querySelectorAll('input[type="text"]');
+                inputs.forEach((input, index) => {
+                    // Solo actualizamos si el input del campo está vacío para no sobreescribir si ya se hizo en el listener
+                    if (!oneTwoActual.numeros[index].cliente || oneTwoActual.numeros[index].cliente !== input.value.trim()) {
+                         oneTwoActual.numeros[index].cliente = input.value.trim();
+                    }
+                });
+
+
+                // 2. Reemplazar o añadir el One Two en la lista global
+                const index = oneTwoSorteos.findIndex(ot => ot.fecha === oneTwoActual.fecha);
+                if (index > -1) {
+                    oneTwoSorteos[index] = oneTwoActual; // Reemplazar
+                } else {
+                    oneTwoSorteos.push(oneTwoActual); // Añadir nuevo
+                }
+
+                // 3. Añadir a la Cuenta por Cobrar
+                // Solo contamos los que tienen cliente asignado.
+                const clientesOneTwo = oneTwoActual.numeros.filter(n => n.cliente).reduce((acc, num) => {
+                    if (!acc[num.cliente]) acc[num.cliente] = { count: 0, total: 0 };
+                    acc[num.cliente].count++;
+                    acc[num.cliente].total += num.dinero;
+                    return acc;
+                }, {});
+                
+                // Primero, eliminamos la entrada anterior para esta fecha y tipo (si existe)
+                for(const cliente in cuentasPorPagar) {
+                     cuentasPorPagar[cliente].sorteos = cuentasPorPagar[cliente].sorteos.filter(s => 
+                        !(s.fecha === oneTwoActual.fecha && s.tipo.startsWith('One Two'))
+                    );
+                    cuentasPorPagar[cliente].total = cuentasPorPagar[cliente].sorteos.reduce((sum, s) => sum + s.monto, 0);
+                    // Si el total es 0 y no hay otros sorteos pendientes, eliminamos el cliente
+                    if (cuentasPorPagar[cliente].total === 0 && cuentasPorPagar[cliente].sorteos.length === 0) {
+                        delete cuentasPorPagar[cliente];
+                    }
+                }
+                
+                // Luego, añadimos la entrada actualizada.
+                for (const cliente in clientesOneTwo) {
+                    agregarACuentaPorPagar(cliente, oneTwoActual.fecha, clientesOneTwo[cliente].total, `One Two (Base ${oneTwoActual.numero_base})`);
+                }
+
+
+                guardarDatos();
+                showMessage(`One Two del ${oneTwoActual.fecha} (Base ${oneTwoActual.numero_base}) guardado correctamente.`);
+                
+                // Volver a la pantalla principal
+                ocultarTodasLasSecciones();
+                mainScreen.classList.remove('hidden');
+                oneTwoActual = null;
+            });
+
+            abrirOneTwoSorteoBtn.addEventListener('click', () => {
+                const fecha = oneTwoFechaInput.value;
+                if (!fecha) {
+                    showMessage('Por favor, ingresa la fecha del sorteo One Two que deseas abrir.');
+                    return;
+                }
+
+                const sorteoExistente = oneTwoSorteos.find(ot => ot.fecha === fecha);
+
+                if (!sorteoExistente) {
+                    showMessage(`No se encontró un sorteo One Two guardado para la fecha ${fecha}.`);
+                    return;
+                }
+
+                oneTwoActual = sorteoExistente;
+                oneTwoFechaActualSpan.textContent = `${oneTwoActual.fecha} (Base ${oneTwoActual.numero_base})`;
+                renderizarOneTwoLista(oneTwoActual.numeros);
+
+                oneTwoListSection.classList.remove('hidden');
+                oneTwoInputContainer.classList.add('hidden'); // Ocultamos la sección de ingresar número base
+                guardarOneTwoBtn.classList.remove('hidden');
+                
+                // Escondemos el botón de abrir para evitar confusiones
+                abrirOneTwoSorteoBtn.classList.add('hidden');
+            });
+            
+            oneTwoGuardarNombresBtn.addEventListener('click', () => {
+                // El proceso de guardar nombres es el mismo que el botón 'guardarOneTwoBtn'
+                guardarOneTwoBtn.click();
+            });
+
+            function renderizarOneTwoLista(numeros) {
+                oneTwoListaNumeros.innerHTML = '';
+                numeros.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'one-two-grid p-2 bg-gray-100 rounded-md shadow-sm';
+                    div.innerHTML = `
+                        <span class="font-bold text-lg text-pink-700">${item.numero}</span>
+                        <input type="text" data-index="${index}" value="${item.cliente || ''}" 
+                            class="one-two-cliente-input p-1 w-full rounded-md border-pink-300 focus:ring-pink-500" 
+                            placeholder="Nombre del Cliente" />
+                        <button data-index="${index}" class="eliminar-cliente-one-two bg-red-500 text-white p-1 rounded-md text-sm hover:bg-red-600">
+                            X
+                        </button>
+                    `;
+                    oneTwoListaNumeros.appendChild(div);
+                });
+
+                // Listener para actualizar el modelo de datos cuando el usuario escribe
+                oneTwoListaNumeros.querySelectorAll('.one-two-cliente-input').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const index = parseInt(e.target.dataset.index);
+                        oneTwoActual.numeros[index].cliente = e.target.value.trim();
+                    });
+                });
+
+                // Listener para el botón de eliminar cliente
+                oneTwoListaNumeros.querySelectorAll('.eliminar-cliente-one-two').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const index = parseInt(e.target.dataset.index);
+                        oneTwoActual.numeros[index].cliente = '';
+                        // Volver a renderizar para que el input se vacíe
+                        renderizarOneTwoLista(oneTwoActual.numeros); 
+                    });
+                });
+            }
+
+            // --- Lógica del Sorteo Normal ---
+            
+            // 1. Iniciar/Abrir Sorteo Normal
+            iniciarSorteoBtn.addEventListener('click', () => {
+                const fecha = fechaInput.value;
+                if (!fecha) {
+                    showMessage('Por favor, selecciona una fecha para iniciar el sorteo.');
+                    return;
+                }
+
+                // Buscar un sorteo existente con esa fecha
+                let sorteoExistente = sorteos.find(s => s.fecha === fecha);
+
+                if (sorteoExistente) {
+                    sorteoActual = sorteoExistente;
+                    showMessage(`El sorteo del ${fecha} ya existe y ha sido abierto para continuar.`);
+                } else {
+                    sorteoActual = {
+                        fecha: fecha,
+                        apuestas: [],
+                        cerrado: false
+                    };
+                    sorteos.push(sorteoActual);
+                    guardarDatos();
+                    showMessage(`Sorteo nuevo del ${fecha} creado exitosamente.`);
+                }
+                
+                ocultarTodasLasSecciones();
+                clienteSelectContainer.classList.remove('hidden');
+                apuestasLista.classList.remove('hidden');
+                
+                // Asegurar que la lista de apuestas se muestre vacía o actualizada
+                renderizarApuestas(); 
+            });
+
+            // 2. Abrir Sorteo Existente
+            abrirExistenteBtn.addEventListener('click', () => {
+                ocultarTodasLasSecciones();
+                historialSorteosContainer.classList.remove('hidden');
+                renderizarHistorialSorteos();
+            });
+
+            backToMainFromHistorialBtn.addEventListener('click', () => {
+                ocultarTodasLasSecciones();
+                mainScreen.classList.remove('hidden');
+            });
+
+            function renderizarHistorialSorteos() {
+                historialLista.innerHTML = '';
+                // Filtramos sorteos que NO están cerrados, porque los cerrados tienen reporte.
+                const sorteosAbiertos = sorteos.filter(s => !s.cerrado);
+
+                if (sorteosAbiertos.length === 0) {
+                    historialLista.innerHTML = '<p class="text-center text-gray-500">No hay sorteos en curso para abrir.</p>';
+                    return;
+                }
+                
+                sorteosAbiertos.forEach((sorteo, index) => {
+                    // Usamos el índice original en el array 'sorteos' para abrirlo
+                    const originalIndex = sorteos.indexOf(sorteo); 
+                    
+                    const item = document.createElement('div');
+                    item.className = 'p-4 rounded-lg shadow-md flex items-center justify-between bg-white';
+                    item.innerHTML = `
+                        <p class="font-bold text-gray-800">Sorteo del: ${sorteo.fecha}</p>
+                        <button data-index="${originalIndex}" class="abrir-sorteo-btn px-3 py-1 text-sm text-white rounded-md bg-blue-500 hover:bg-blue-600 transition duration-300">
+                            Abrir
+                        </button>
+                    `;
+                    historialLista.appendChild(item);
+                });
+                
+                historialLista.querySelectorAll('.abrir-sorteo-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const index = e.target.dataset.index;
+                        sorteoActual = sorteos[index];
+                        
+                        historialSorteosContainer.classList.add('hidden');
+                        clienteSelectContainer.classList.remove('hidden');
+                        apuestaFormContainer.classList.add('hidden'); // Ocultar form si lo había
+                        apuestasLista.classList.remove('hidden');
+                        renderizarApuestas();
+                    });
+                });
+            }
+
+
+            // 3. Selección y Cambio de Cliente
+            seleccionarClienteBtn.addEventListener('click', () => {
+                const nombreCliente = clienteInput.value.trim();
+                if (!nombreCliente) {
+                    showMessage('Por favor, introduce el nombre del cliente.');
+                    return;
+                }
+                
+                clienteActual = nombreCliente;
+                clienteActualSpan.textContent = clienteActual;
+                
+                clienteSelectContainer.classList.add('hidden');
+                apuestaFormContainer.classList.remove('hidden');
+                
+                limpiarFormularioApuesta();
+            });
+
+            cambiarClienteBtn.addEventListener('click', () => {
+                clienteActual = null;
+                apuestaFormContainer.classList.add('hidden');
+                clienteSelectContainer.classList.remove('hidden');
+                clienteInput.value = '';
+                renderizarApuestas(); // Esto también mostrará la lista de apuestas del sorteo
+            });
+
+            backToMainFromApuestasBtn.addEventListener('click', () => {
+                 sorteoActual = null;
+                 clienteActual = null;
+                 ocultarTodasLasSecciones();
+                 mainScreen.classList.remove('hidden');
+            });
+            
+            // 4. Lógica de Apuesta
+            function calcularTiempos(dinero) {
+                // Lógica de cálculo de tiempos (asumiendo 1 unidad de dinero = 1 unidad de tiempo)
+                // Ajusta esta lógica si tienes reglas de tiempos más complejas.
+                return dinero * 1; 
+            }
+
+            dineroInput.addEventListener('input', () => {
+                const dinero = parseFloat(dineroInput.value);
+                if (!isNaN(dinero) && dinero > 0) {
+                    tiemposSpan.textContent = calcularTiempos(dinero).toFixed(2);
+                } else {
+                    tiemposSpan.textContent = '0.00';
+                }
+            });
+
+            agregarBtn.addEventListener('click', () => {
+                if (!sorteoActual || !clienteActual) {
+                    showMessage('Debe seleccionar un sorteo y un cliente.');
+                    return;
+                }
+
+                const numero = numeroInput.value.trim();
+                const dinero = parseFloat(dineroInput.value);
+
+                if (numero.length === 0 || isNaN(dinero) || dinero <= 0) {
+                    showMessage('Por favor, ingresa un número y una cantidad de dinero válida.');
+                    return;
+                }
+                
+                const apuesta = {
+                    cliente: clienteActual,
+                    numero: numero.padStart(4, '0'), // Asegurar que sea de 4 dígitos si aplica
+                    dinero: dinero,
+                    tiempos: calcularTiempos(dinero),
+                    timestamp: new Date().toISOString()
+                };
+
+                sorteoActual.apuestas.push(apuesta);
+                guardarDatos();
+                limpiarFormularioApuesta();
+                renderizarApuestas();
+                
+                // Mostrar un mensaje breve de éxito sin usar alert()
+                const originalText = agregarBtn.textContent;
+                agregarBtn.textContent = '¡Agregado!';
+                agregarBtn.classList.remove('bg-green-600');
+                agregarBtn.classList.add('bg-green-400');
+                
+                setTimeout(() => {
+                    agregarBtn.textContent = originalText;
+                    agregarBtn.classList.add('bg-green-600');
+                    agregarBtn.classList.remove('bg-green-400');
+                }, 1000);
+            });
+            
+            // 5. Reporte y Cierre
+
+            shareReporteBtn.addEventListener('click', () => {
+                // Obtener la fecha del sorteo actual o del último sorteo cerrado
+                const fechaReporte = sorteos.find(s => s.cerrado)?.fecha || 'Sorteo Desconocido'; 
+
+                // Convertir el reporte en texto plano para compartir
+                const reporte = document.getElementById('reporte-contenido');
+                const total = document.getElementById('total-dinero-sorteo').textContent;
+                
+                let shareText = `*REPORTE DE CIERRE - ${fechaReporte}*\n\n`;
+                shareText += '---------------------------------\n';
+                shareText += 'Número | Tiempos | Dinero\n';
+                shareText += '---------------------------------\n';
+
+                reporte.querySelectorAll('.grid-cols-3').forEach(item => {
+                    // Solo tomamos los 3 primeros spans (Número, Tiempos, Dinero)
+                    const [num, tiemp, din] = Array.from(item.children).slice(0, 3).map(span => span.textContent); 
+                    shareText += `${num.padStart(4, ' ')} | ${tiemp.padStart(7, ' ')} | ${din}\n`;
+                });
+                shareText += '---------------------------------\n';
+                shareText += `${total}\n\n`;
+
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Reporte de Cierre de Sorteo',
+                        text: shareText
+                    }).catch(error => console.log('Error al compartir', error));
+                } else {
+                    showMessage('La función de compartir no está disponible. Copia el siguiente texto:\n\n' + shareText);
+                }
+            });
+
+            volverBtn.addEventListener('click', () => {
+                ocultarTodasLasSecciones();
+                mainScreen.classList.remove('hidden');
+            });
+            
+            // 6. Cuentas por Cobrar (Botón Principal)
+            cobroBtn.addEventListener('click', () => {
+                ocultarTodasLasSecciones();
+                cobroContainer.classList.remove('hidden');
+                renderizarCobros();
+            });
+
+            backToMainFromCobroBtn.addEventListener('click', () => {
+                 ocultarTodasLasSecciones();
+                 mainScreen.classList.remove('hidden');
+            });
+
+
+            // --- Lógica de Inicialización ---
+            
+            // Asegurar que la fecha de hoy esté por defecto
+            const today = new Date().toISOString().split('T')[0];
+            fechaInput.value = today;
+            oneTwoFechaInput.value = today;
+            
+        });
+    </script>
+</body>
+</html>
+
