@@ -598,7 +598,7 @@
                 const baseStr = String(numeroBase).padStart(2, '0');
                 oneTwoActual = { fecha, numero_base: baseStr, numeros: [] };
                 for (let i = 0; i <= 9; i++) {
-                    oneTwoActual.numeros.push({ numero: i + baseStr, cliente: '', dinero: 10 });
+                    oneTwoActual.numeros.push({ numero: i + baseStr, cliente: '', dinero: 2 });
                 }
                 oneTwoFechaActualSpan.textContent = `${fecha} (Base ${baseStr})`;
                 renderizarOneTwoLista(oneTwoActual.numeros);
@@ -848,5 +848,6 @@
     </script>
 </body>
 </html>
+
 
 
